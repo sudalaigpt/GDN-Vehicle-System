@@ -67,7 +67,36 @@ function App() {
       authListener.subscription.unsubscribe();
     };
   }, []);
+  useEffect(() => {
+    if (!session || !supabase) {
+      setVehicles([]);
+      setVisits([]);
+      return;
+    }
 
+    async function loadData() {
+      const { data: vehicleData, error: vehicleError } =
+        await supabase.from('vehicles').select('*');
+
+      const { data: visitData, error: visitError } =
+        await supabase.from('visits').select('*');
+
+      if (vehicleError || visitError) {
+        setNotice('Database error: ' +
+          (vehicleError?.message || visitError?.message));
+        return;
+      }
+
+      setVehicles((vehicleData || []).map(v => ({
+        ...v,
+        type: v.vehicle_type
+      })));
+
+      setVisits(visitData || []);
+    }
+
+    loadData();
+  }, [session]);
   const inside = useMemo(
     () => visits.filter(v => v.status === 'IN'),
     [visits]
@@ -158,68 +187,147 @@ function App() {
     });
   }
 
-  function saveVehicleAndIn() {
-    if (!form.reg_no.trim() || !form.driver_name.trim()) {
-      setNotice('Registration number and driver name are required.');
-      return;
-    }
+  async function saveVehicleAndIn() {
+  if (!form.reg_no.trim() || !form.driver_name.trim()) {
+    setNotice('Enter registration number and driver name.');
+    return;
+  }
 
-    let vehicle = selected || vehicles.find(
-      v => v.reg_no.toUpperCase() === form.reg_no.trim().toUpperCase()
-    );
+  if (!supabase || !session) {
+    setNotice('Please login first.');
+    return;
+  }
 
-    if (!vehicle) {
-      vehicle = { ...form, id: crypto.randomUUID() };
-      setVehicles(current => [...current, vehicle]);
-    } else {
-      vehicle = { ...vehicle, ...form };
-      setVehicles(current => current.map(v => v.id === vehicle.id ? vehicle : v));
-    }
+  setBusy(true);
+  setNotice('');
 
-    if (visits.some(v => v.vehicle_id === vehicle.id && v.status === 'IN')) {
-      setNotice('This vehicle already has an active IN entry.');
-      return;
-    }
+  try {
+    let vehicle;
 
-    const visit = {
-      id: crypto.randomUUID(),
-      vehicle_id: vehicle.id,
-      reg_no: vehicle.reg_no,
-      driver_name: vehicle.driver_name,
-      company: vehicle.company || '',
-      purpose: form.purpose || '',
-      in_at: now(),
-      out_at: null,
-      status: 'IN'
+    const vehicleDetails = {
+      reg_no: form.reg_no.trim().toUpperCase(),
+      vehicle_type: form.type,
+      company: form.company,
+      driver_name: form.driver_name,
+      driver_mobile: form.driver_mobile
     };
 
-    setVisits(current => [visit, ...current]);
-    setNotice(vehicle.reg_no + ' registered IN successfully.');
-    setSelected(null);
-    setSearch('');
-    setMatches([]);
-    setForm({
-      reg_no: '', type: 'Truck/Lorry', company: '',
-      driver_name: '', driver_mobile: '', purpose: ''
-    });
-    setPage('home');
-  }
+    if (selected && selected.id) {
+      const { data, error } = await supabase
+        .from('vehicles')
+        .update(vehicleDetails)
+        .eq('id', selected.id)
+        .select()
+        .single();
 
-  function vehicleOut(vehicleId) {
-    const activeVisit = visits.find(
-      v => v.vehicle_id === vehicleId && v.status === 'IN'
-    );
-    if (!activeVisit) {
-      setNotice('No active IN record found for this vehicle.');
+      if (error) throw error;
+      vehicle = data;
+    } else {
+      const { data, error } = await supabase
+        .from('vehicles')
+        .insert(vehicleDetails)
+        .select()
+        .single();
+
+      if (error) throw error;
+      vehicle = data;
+    }
+
+    const { data: activeVisit, error: checkError } = await supabase
+      .from('visits')
+      .select('id')
+      .eq('vehicle_id', vehicle.id)
+      .eq('status', 'IN')
+      .maybeSingle();
+
+    if (checkError) throw checkError;
+
+    if (activeVisit) {
+      setNotice('This vehicle is already inside.');
       return;
     }
-    setVisits(current => current.map(v => v.id === activeVisit.id
-      ? { ...v, out_at: now(), status: 'OUT' }
-      : v
-    ));
-    setNotice(activeVisit.reg_no + ' marked OUT successfully.');
+
+    const { data: visit, error: visitError } = await supabase
+      .from('visits')
+      .insert({
+        vehicle_id: vehicle.id,
+        reg_no: vehicle.reg_no,
+        driver_name: vehicle.driver_name,
+        company: vehicle.company,
+        purpose: form.purpose,
+        in_at: now(),
+        out_at: null,
+        status: 'IN',
+        security_user: session.user.email
+      })
+      .select()
+      .single();
+
+    if (visitError) throw visitError;
+
+    setVehicles(current => {
+      const exists = current.some(v => v.id === vehicle.id);
+      const updated = { ...vehicle, type: vehicle.vehicle_type };
+
+      return exists
+        ? current.map(v => v.id === vehicle.id ? updated : v)
+        : [updated, ...current];
+    });
+
+    setVisits(current => [visit, ...current]);
+    setForm({
+      reg_no: '',
+      type: 'Truck/Lorry',
+      company: '',
+      driver_name: '',
+      driver_mobile: '',
+      purpose: ''
+    });
+    setSelected(null);
+    setMatches([]);
+    setSearch('');
+    setPage('home');
+    setNotice('Vehicle IN saved successfully.');
+
+  } catch (error) {
+    setNotice('Save failed: ' + error.message);
+  } finally {
+    setBusy(false);
+  }
+  }
+  async function vehicleOut(vehicleId) {
+  const activeVisit = visits.find(
+    v => v.vehicle_id === vehicleId && v.status === 'IN'
+  );
+
+  if (!activeVisit) {
+    setNotice('No active IN record found for this vehicle.');
+    return;
   }
 
+  setBusy(true);
+
+  const { data, error } = await supabase
+    .from('visits')
+    .update({ out_at: now(), status: 'OUT' })
+    .eq('id', activeVisit.id)
+    .select()
+    .single();
+
+  setBusy(false);
+
+  if (error) {
+    setNotice('Vehicle OUT failed: ' + error.message);
+    return;
+  }
+
+  setVisits(current =>
+    current.map(v => v.id === activeVisit.id ? data : v)
+  );
+
+  setNotice(activeVisit.reg_no + ' marked OUT successfully.');
+  }
+  
   function exportCsv() {
     const rows = [
       ['Registration', 'Driver', 'Company', 'Purpose', 'IN Time', 'OUT Time', 'Status'],
