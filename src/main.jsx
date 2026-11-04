@@ -178,7 +178,7 @@ function App() {
     setSelected(vehicle);
     setForm({
       reg_no: vehicle.reg_no,
-      type: vehicle.type || 'Truck/Lorry',
+      type: vehicle.vehicle_type || vehicle.type || 'Truck/Lorry',
       company: vehicle.company || '',
       driver_name: vehicle.driver_name || '',
       driver_mobile: vehicle.driver_mobile || '',
@@ -426,10 +426,6 @@ function App() {
 
       <main className="content">
         {notice && <div className="notice">{notice}<button onClick={() => setNotice('')}>×</button></div>}
-        <div className="notice">
-          Demo data warning: vehicle records and visit history are stored only in this browser in this version.
-          They are not yet saved to the Supabase database.
-        </div>
 
         {page === 'home' && (
           <>
