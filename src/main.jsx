@@ -31,7 +31,7 @@ function App() {
   const [page, setPage] = useState('home');
 
   // Demo vehicle and visit data remain in browser memory in this version.
-  const [vehicles, setVehicles] = useState(demoVehicles);
+  const [vehicles, setVehicles] = useState([]);
   const [visits, setVisits] = useState([]);
   const [search, setSearch] = useState('');
   const [matches, setMatches] = useState([]);
