@@ -33,6 +33,7 @@ function App() {
   const [vehicles, setVehicles] = useState([]);
   const [visits, setVisits] = useState([]);
   const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState('');
   const [matches, setMatches] = useState([]);
   const [selected, setSelected] = useState(null);
   const [editingVisit, setEditingVisit] = useState(null);
@@ -642,23 +643,4 @@ function VehicleTable({ rows, onOut, onEdit, history = false }) {
           {history && <th>OUT Time</th>}<th></th>
         </tr></thead>
         <tbody>
-          {rows.length ? rows.map(v => (
-            <tr key={v.id}>
-              <td><b>{v.reg_no}</b></td><td>{v.driver_name}</td><td>{v.company}</td>
-              <td>{history ? new Date(v.in_at).toLocaleString() : <span className="pill">{v.status}</span>}</td>
-              {history && <td>{v.out_at ? new Date(v.out_at).toLocaleString() : '—'}</td>}
-              <td>
-  {history && (
-    <button className="outline small" onClick={() => onEdit(v)}>Edit</button>
-  )}
-  {!history && v.status === 'IN' && onOut && (
-    <button className="danger small" onClick={() => onOut(v.vehicle_id)}>Mark OUT</button>
-  )}
-</td>
-            </tr>
-          )) : <tr><td colSpan={history ? 6 : 5} className="empty">No records found</td></tr>}
-</tbody>
-</table>
-</div>
-);
-}
+         
