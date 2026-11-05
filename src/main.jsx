@@ -665,3 +665,4 @@ function VehicleTable({ rows, onOut, onEdit, history = false }) {
     </div>
   );
 }
+createRoot(document.getElementById('root')).render(<App />);
