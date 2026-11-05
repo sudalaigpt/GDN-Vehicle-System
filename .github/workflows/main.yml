@@ -48,8 +48,9 @@ jobs:
           }
           EOF
 
-            - name: Add Android platform
+      - name: Add Android platform
         run: npx cap add android
+
 
       - name: Fix Kotlin duplicate classes
         run: |
