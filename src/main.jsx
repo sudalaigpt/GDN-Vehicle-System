@@ -35,7 +35,9 @@ function App() {
   const [search, setSearch] = useState('');
   const [matches, setMatches] = useState([]);
   const [selected, setSelected] = useState(null);
-  const [filter, setFilter] = useState('');
+  const [editingVisit, setEditingVisit] = useState(null);
+const [editInAt, setEditInAt] = useState('');
+const [editOutAt, setEditOutAt] = useState('');
   const [form, setForm] = useState({
     reg_no: '', type: 'Truck/Lorry', company: '',
     driver_name: '', driver_mobile: '', purpose: ''
@@ -186,6 +188,18 @@ function App() {
     });
   }
 
+  function toLocalInputValue(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function startEditVisit(visit) {
+  setEditingVisit(visit);
+  setEditInAt(toLocalInputValue(visit.in_at));
+  setEditOutAt(toLocalInputValue(visit.out_at));
+}
   async function saveVehicleAndIn() {
   if (!form.reg_no.trim() || !form.driver_name.trim()) {
     setNotice('Enter registration number and driver name.');
@@ -325,6 +339,48 @@ function App() {
   );
 
   setNotice(activeVisit.reg_no + ' marked OUT successfully.');
+  }
+  
+  async function saveVisitEdit() {
+  if (!editingVisit || !editInAt) {
+    setNotice('Please enter IN Time.');
+    return;
+  }
+
+  const inDate = new Date(editInAt);
+  const outDate = editOutAt ? new Date(editOutAt) : null;
+
+  if (outDate && outDate < inDate) {
+    setNotice('OUT Time cannot be earlier than IN Time.');
+    return;
+  }
+
+  setBusy(true);
+
+  const { data, error } = await supabase
+    .from('visits')
+    .update({
+      in_at: inDate.toISOString(),
+      out_at: outDate ? outDate.toISOString() : null,
+      status: outDate ? 'OUT' : 'IN'
+    })
+    .eq('id', editingVisit.id)
+    .select()
+    .single();
+
+  setBusy(false);
+
+  if (error) {
+    setNotice('Visit update failed: ' + error.message);
+    return;
+  }
+
+  setVisits(current =>
+    current.map(v => v.id === data.id ? data : v)
+  );
+
+  setEditingVisit(null);
+  setNotice('Visit details updated successfully.');
   }
   
   function exportCsv() {
@@ -519,9 +575,10 @@ function App() {
                 <button className="outline" onClick={() => setFilter('')}>Clear</button>
               </div>
               <VehicleTable
-                rows={visits.filter(v => !filter || v.reg_no.toLowerCase().includes(filter.toLowerCase()))}
-                history
-              />
+  rows={visits.filter(v => !filter || v.reg_no.toLowerCase().includes(filter.toLowerCase()))}
+  history
+  onEdit={startEditVisit}
+/>
             </section>
           </>
         )}
@@ -535,7 +592,37 @@ function App() {
             </section>
           </>
         )}
-      </main>
+      {editingVisit && (
+  <section className="panel">
+    <h2>Edit Visit Details</h2>
+
+    <label>
+      IN Time
+      <input
+        type="datetime-local"
+        value={editInAt}
+        onChange={e => setEditInAt(e.target.value)}
+      />
+    </label>
+
+    <label>
+      OUT Time
+      <input
+        type="datetime-local"
+        value={editOutAt}
+        onChange={e => setEditOutAt(e.target.value)}
+      />
+    </label>
+
+    <button className="primary" onClick={saveVisitEdit} disabled={busy}>
+      Save Changes
+    </button>
+
+    <button className="outline" onClick={() => setEditingVisit(null)}>
+      Cancel
+    </button>
+  </section>
+)}</main>
       <footer>GDN · GDN-GATE-01 · Single Security Gate · Photo capture disabled</footer>
     </div>
   );
@@ -545,7 +632,7 @@ function Field({ label, value, onChange }) {
   return <label>{label}<input value={value} onChange={e => onChange(e.target.value)} /></label>;
 }
 
-function VehicleTable({ rows, onOut, history = false }) {
+function VehicleTable({ rows, onOut, onEdit, history = false }) {
   return (
     <div className="tablewrap">
       <table>
@@ -560,16 +647,13 @@ function VehicleTable({ rows, onOut, history = false }) {
               <td><b>{v.reg_no}</b></td><td>{v.driver_name}</td><td>{v.company}</td>
               <td>{history ? new Date(v.in_at).toLocaleString() : <span className="pill">{v.status}</span>}</td>
               {history && <td>{v.out_at ? new Date(v.out_at).toLocaleString() : '—'}</td>}
-              <td>{!history && v.status === 'IN' && onOut && (
-                <button className="danger small" onClick={() => onOut(v.vehicle_id)}>Mark OUT</button>
-              )}</td>
+              <td>
+  {history && (
+    <button className="outline small" onClick={() => onEdit(v)}>Edit</button>
+  )}
+  {!history && v.status === 'IN' && onOut && (
+    <button className="danger small" onClick={() => onOut(v.vehicle_id)}>Mark OUT</button>
+  )}
+</td>
             </tr>
-          )) : <tr><td colSpan={history ? 6 : 5} className="empty">No records yet</td></tr>}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-createRoot(document.getElementById('root')).render(<App />);
-
+          )) : <tr><td colSpan={history ? 6 : 5} c
