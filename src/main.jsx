@@ -384,24 +384,41 @@ function startEditVisit(visit) {
   setNotice('Visit details updated successfully.');
   }
   
-  function exportCsv() {
-    const rows = [
-      ['Registration', 'Driver', 'Company', 'Purpose', 'IN Time', 'OUT Time', 'Status'],
-      ...visits.map(v => [
-        v.reg_no, v.driver_name, v.company, v.purpose,
-        v.in_at, v.out_at || '', v.status
-      ])
-    ];
-    const csv = rows.map(row =>
-      row.map(value => '"' + String(value ?? '').replaceAll('"', '""') + '"').join(',')
-    ).join('\n');
-    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'GDN-vehicle-report.csv';
-    link.click();
-    URL.revokeObjectURL(url);
-  }
+  
+function exportCsv() {
+  const formatIST = (value) => {
+    if (!value) return '';
+    return new Date(value).toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    });
+  };
+
+  const rows = [
+    ['Registration', 'Driver', 'Company', 'Purpose', 'IN Time (IST)', 'OUT Time (IST)', 'Status'],
+    ...visits.map(v => [
+      v.reg_no, v.driver_name, v.company, v.purpose,
+      formatIST(v.in_at), formatIST(v.out_at), v.status
+    ])
+  ];
+
+  const csv = '\uFEFF' + rows.map(row =>
+    row.map(value => '"' + String(value ?? '').replaceAll('"', '""') + '"').join(',')
+  ).join('\n');
+
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'GDN-vehicle-report-IST.csv';
+  link.click();
+  URL.revokeObjectURL(url);
+}
 
   if (!authReady) {
     return <main className="login"><section className="loginbox"><h2>Checking login session...</h2></section></main>;
