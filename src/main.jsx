@@ -400,7 +400,7 @@ function exportCsv() {
   }).formatToParts(new Date(value));
 
   const p = Object.fromEntries(parts.map(x => [x.type, x.value]));
-  return `${p.day}/${p.month}/${p.year} ${p.hour}:${p.minute}:${p.second}`;
+  return `${p.day}/${p.month}/${p.year} ${p.hour}:${p.minute}:${p.second} IST`;
 };
 
   const rows = [
