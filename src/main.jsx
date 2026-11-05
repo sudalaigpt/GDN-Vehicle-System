@@ -387,20 +387,21 @@ function startEditVisit(visit) {
   
 function exportCsv() {
   const formatIST = (value) => {
-    if (!value) return '';
-    return new Date(value).toLocaleString('en-IN', {
-      timeZone: 'Asia/Kolkata',
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false,
-hourCycle: 'h23'
-      
-    });
-  };
+  if (!value) return '';
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Kolkata',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23'
+  }).formatToParts(new Date(value));
+
+  const p = Object.fromEntries(parts.map(x => [x.type, x.value]));
+  return `${p.day}/${p.month}/${p.year} ${p.hour}:${p.minute}:${p.second}`;
+};
 
   const rows = [
     ['Registration', 'Driver', 'Company', 'Purpose', 'IN Time (IST)', 'OUT Time (IST)', 'Status'],
