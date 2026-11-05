@@ -656,4 +656,9 @@ function VehicleTable({ rows, onOut, onEdit, history = false }) {
   )}
 </td>
             </tr>
-          )) : <tr><td colSpan={history ? 6 : 5} c
+          )) : <tr><td colSpan={history ? 6 : 5} className="empty">No records found</td></tr>}
+</tbody>
+</table>
+</div>
+);
+}
